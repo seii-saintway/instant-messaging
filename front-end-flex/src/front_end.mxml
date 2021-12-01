@@ -1,0 +1,106 @@
+<?xml version="1.0"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" xmlns:s="library://ns.adobe.com/flex/spark">
+    <fx:Script><![CDATA[
+        import mx.controls.Alert;
+
+        var socket:Socket = null;
+
+        // 初始化连接
+        public function conn():void
+        {
+            socket = new Socket();
+            // 增加事件监听处理
+            socket.addEventListener(Event.CLOSE,closeHandler);
+            socket.addEventListener(Event.CONNECT,connectHandler);
+            socket.addEventListener(ProgressEvent.SOCKET_DATA, socketDataHandler);
+            // 建立连接
+            socket.connect('127.0.0.1',8088);
+        }
+
+        // 监听关闭事件
+        private function closeHandler(event:Event):void
+        {
+            trace("closeHandler: " + event);
+            Alert.show('closed!');
+        }
+
+        // 监听连接成功事件
+        private function connectHandler(event:Event):void
+        {
+            trace("connectHandler: " + event);
+            // 注册用户
+            setName();
+            Alert.show('connected!');
+        }
+
+        // 处理接收消息
+        private function socketDataHandler(event:ProgressEvent):void
+        {
+            var str:String = socket.readUTFBytes(socket.bytesAvailable);
+            trace("receive data : " + str);
+            // 沙箱处理
+            if(str.indexOf("<?xml version=\"1.0\"?>") == 0){
+                //Alert.show(str);
+            } else if (str.indexOf("ROSTER:") == 0){
+                this.roster.text = str; // 处理通讯录
+            } else {
+                this.content.appendText(str +"\n"); // 普通消息
+            }
+        }
+
+        // 点击按钮发送消息，内容为输入框中的文本
+        public function send():void
+        {
+            var message:String = this.messageField.text;
+            trace("client send : " + message);
+            socket.writeUTFBytes("MSG:" + this.receive.text + "#" + this.setname.text + ":" + message);
+            socket.flush();
+            // 设置对话框展示效果
+            this.content.appendText(this.setname.text + ":" + this.messageField.text +"\n");
+            this.messageField.text = '';
+
+        }
+
+        // 发送字符串函数，用户注册时使用
+        private function sendMsg(str:String):void
+        {
+            trace("client send : " + str);
+            socket.writeUTFBytes(str);
+            socket.flush();
+        }
+
+        // 点击关闭
+        public function close():void
+        {
+            trace("close the connect");
+            var nickname:String = this.setname.text;
+            // 根据注册的用户注销用户
+            sendMsg("QUIT:" + nickname);
+            // 关闭连接
+            socket.close();
+        }
+
+        // 设置用户名，用于注册
+        public function setName():void{
+            var nickname:String = this.setname.text;
+            sendMsg("AUTH:" + nickname);
+        }
+
+        ]]></fx:Script>
+
+    <s:Label text="用户名:" x="10" y="10" />
+    <s:TextInput x="50" y="0" width="100" height="31" id="setname"/>
+    <s:Button click="conn()" label="连接" x="160" y="0" width="60" height="31"/>
+
+    <s:Label text="接收者:" x="10" y="50"/>
+    <s:TextInput x="50" y="40" width="100" height="31" id="receive"/>
+    <s:TextInput x="160" y="40" width="200" height="31" id="messageField"/>
+    <s:Button click="send()" label="发送" x="370" y="40" width="60" height="31"/>
+    <s:Button click="close()" label="关闭" x="440" y="40" width="60" height="31"/>
+
+    <s:Label text="消息:" x="10" y="100"/>
+    <s:Label text="通讯录:" x="320" y="100"/>
+    <s:TextArea x="10" y="130" width="300" height="100" id="content"/>
+    <s:TextArea x="320" y="130" width="200" height="100" id="roster"/>
+
+</s:Application>
